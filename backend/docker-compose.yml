@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: afyaflow-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-supersecurepassword123}
+      POSTGRES_DB: ${DB_NAME:-afyaflow_prod}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: afyaflow-api
+    restart: always
+    environment:
+      PORT: 5000
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-supersecurepassword123}@db:5432/${DB_NAME:-afyaflow_prod}?schema=public
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-jwtaccesssecuretokensecretkey99}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-jwtrefreshsecuretokensecretkey88}
+      CORS_ORIGIN: ${CORS_ORIGIN:-*}
+    ports:
+      - "5000:5000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+    driver: local

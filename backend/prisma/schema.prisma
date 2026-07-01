@@ -1,0 +1,188 @@
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id              String           @id @default(uuid())
+  email           String           @unique
+  passwordHash    String
+  firstName       String
+  lastName        String
+  role            String           @default("PATIENT")
+  isEmailVerified Boolean          @default(false)
+  isApproved      Boolean          @default(false) // Doctors need approval, Patients auto-approve (or after verification)
+  isActive        Boolean          @default(true)  // For suspending accounts
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  refreshTokens   RefreshToken[]
+  securityTokens  SecurityToken[]
+  aiConversations AiConversation[]
+  aiUsages        AiUsage[]
+  notifications   NotificationRecord[]
+  invoices        Invoice[]
+
+  // Patient details (Optional)
+  age              Int?
+  gender           String?
+  bloodPressure    String?
+  heartRate        Int?
+  bloodSugar       Int?
+  mealPlan         String?
+  waterTarget      Int?             @default(2500)
+  waterDrank       Int?             @default(0)
+  
+  // Relations
+  assignedDoctorId String?
+  assignedDoctor   User?            @relation("DoctorPatients", fields: [assignedDoctorId], references: [id], onDelete: SetNull)
+  patients         User[]           @relation("DoctorPatients")
+
+  @@map("users")
+}
+
+model SecurityToken {
+  id        String    @id @default(uuid())
+  tokenHash String    @unique
+  type      String
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime  @default(now())
+
+  @@map("security_tokens")
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  tokenHash String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  revoked   Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@map("refresh_tokens")
+}
+
+model AiConversation {
+  id        String      @id @default(uuid())
+  userId    String
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  createdAt DateTime    @default(now())
+  messages  AiMessage[]
+
+  @@map("ai_conversations")
+}
+
+model AiMessage {
+  id             String         @id @default(uuid())
+  conversationId String
+  conversation   AiConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  role           String         // 'user' or 'assistant'
+  content        String
+  createdAt      DateTime       @default(now())
+
+  @@map("ai_messages")
+}
+
+model AiUsage {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  queryType String   // 'PATIENT_CHAT' or 'DOCTOR_MEAL_PLAN_DRAFT'
+  timestamp DateTime @default(now())
+
+  @@map("ai_usages")
+}
+
+
+
+model Subscription {
+  id                String    @id @default(uuid())
+  orgName           String    // Simulated org name
+  planName          String    // Standard, Premium
+  status            String    @default("ACTIVE")
+  amount            Float
+  startDate         DateTime  @default(now())
+  endDate           DateTime
+  gracePeriodEndsAt DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@map("subscriptions")
+}
+
+model Invoice {
+  id            String    @id @default(uuid())
+  userId        String?
+  user          User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  recipientName String
+  amount        Float
+  status        String    @default("UNPAID")
+  method        String    @default("MPESA")
+  dueDate       DateTime
+  paidAt        DateTime?
+  createdAt     DateTime  @default(now())
+
+  @@map("invoices")
+}
+
+model NotificationRecord {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  body      String
+  type      String   // 'PUSH' | 'EMAIL' | 'IN_APP'
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@map("notification_records")
+}
+
+model Appointment {
+  id          String   @id @default(uuid())
+  patientId   String
+  patientName String
+  doctorName  String
+  date        DateTime
+  time        String
+  status      String   // 'Scheduled' | 'Completed' | 'Cancelled'
+  createdAt   DateTime @default(now())
+
+  @@map("appointments")
+}
+
+model HomeVisit {
+  id          String   @id @default(uuid())
+  patientId   String
+  patientName String
+  doctorName  String
+  date        DateTime
+  time        String
+  location    String
+  status      String   // 'Assigned' | 'In Progress' | 'Completed' | 'Delayed'
+  createdAt   DateTime @default(now())
+
+  @@map("home_visits")
+}
+
+model TimelineEvent {
+  id          String   @id @default(uuid())
+  patientId   String
+  title       String
+  description String
+  date        DateTime @default(now())
+  type        String   // 'medical' | 'log' | 'appointment' | 'alert'
+  createdAt   DateTime @default(now())
+
+  @@map("timeline_events")
+}
+
+
+
